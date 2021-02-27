@@ -9,3 +9,13 @@ class Item(models.Model):
 
     def __str__(self):
         return self.item_name
+
+
+class ItemValue(models.Model):
+    item_id = models.ForeignKey(Item, on_delete=models.CASCADE)
+    price = models.IntegerField()
+    date = models.DateField()
+    volume = models.IntegerField()
+
+    def __str__(self):
+        return f"{self.item_id} - {self.date}"
