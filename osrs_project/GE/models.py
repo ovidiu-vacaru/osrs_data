@@ -19,3 +19,6 @@ class ItemValue(models.Model):
 
     def __str__(self):
         return f"{self.item_id} - {self.date}"
+
+    class Meta:
+        unique_together = ('item_id', 'date',)

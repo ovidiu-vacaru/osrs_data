@@ -4,7 +4,12 @@ import json
 ge = GrandExchange()
 
 
-#object_id = ge.display_top_twenty("2")
-#ge.populatedb_items(object_id)
-items_db = ge.extract_items()
-ge.populatedb_values(items_db)
+top100 = ge.display_top_twenty("2")
+ge.populatedb_items(top100)
+items = ge.extract_items()
+objs = []
+for item in items:
+    objs.append(item[1])
+ge.populatedb_values(objs)
+
+

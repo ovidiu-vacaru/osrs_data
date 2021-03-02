@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 import re
 import json
 import psycopg2
+import time
 
 
 class GrandExchange:
@@ -108,6 +109,7 @@ class GrandExchange:
                     print(f"Added {name} to the database.")
                 except Exception as e:
                     print(e)
+                    pass
 
             else:
                 print(f"{r.status_code} - Item doesn't exist in the osrs database.")
@@ -126,30 +128,58 @@ class GrandExchange:
         items = self.cursor.fetchall()
         return items
     
-    def populatedb_values(self, items):
+    #TO DO AFTER I COMPLETE THE VOLUME EXTRACTION 
+        '''Takes a list of items PRICES/VOLUME/DATE'''
+    def populatedb_values(self, item_id):
         #extract items
-       for item in items:
-
-            r = requests.get(
-                f"http://services.runescape.com/m=itemdb_oldschool/api/catalogue/detail.json?item={item[1]}"
-            )
-
-            r_graph = requests.get(
-                f"https://services.runescape.com/m=itemdb_rs/api/graph/{item[1]}.json"
-            )
-
-            if r.status_code == 200:
-                content = r.content
-                values = json.load(content)
-                price = values["item"]["price"]
+        for item in item_id:
+            values = self.extract_volume_last_day(item) # price, volume, date
+            try:
                 self.create_conn()
                 self.cursor.execute(
-                    'SELECT CAST( current_date AS Date ) ;'
+                    'INSERT INTO "GE_itemvalue"(item_id_id, price, date, volume) VALUES (%s, %s, %s, %s )',
+                    (item, values[0], values[2] , values[1])
                 )
-                date = self.cursor.fetchall()
-                self.cursor.execute(
-                    'INSERT INTO "GE_itemvalue"(item_id, price, date, volume) VALUES (%s, %s, %s, %s )',
-                    (item[1], price, date , volume)
-                )
+                print(f"attempting to add {item}, {values[0]}, {values[1]}, {values[2]}")
+                self.conn.commit()
+                self.close_conn()
+            except Exception as e:
+                self.result = e
+                print(e)
+                pass
+            
+        
+
+        
+    def extract_volume_last_day(self, id):
+        time.sleep(3)
+        ''' RETURNS PRICE, VOLUME of yesterday '''
+        header = {
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36",
+            "referer": "https://www.google.com/",
+        }
+        r = requests.get(
+            f"https://secure.runescape.com/m=itemdb_oldschool/Attack+potion%283%29/viewitem?obj={id}",
+            headers=header,
+        )
+        soup = BeautifulSoup(r.content, "html.parser")
+
+        tbody = soup.find_all("script")
+        volumes = str(tbody[2])
+        price = soup.find_all("span")
+        #trade180.push\(\[new Date\('2021/02/27'\),\s148302\]\); 
+        price = re.findall("average180.push\(\[new Date\('(.*)'\),\s(.*),\s(.*)]\);", volumes)
+        volumes = re.findall("trade180.push\(\[new Date\('(.*)'\),\s(.*)\]\);", volumes)
+        try:
+            price = price[-2][1] # return price yesterday
+            volume = volumes[-2][1]
+            date = volumes[-2][0]
+        except Exception as e:
+            print(f"id is {id}")
+            print(e)
+            print(volumes)
+        return price, volume, date
+        
+
 
 
